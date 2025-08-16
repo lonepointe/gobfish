@@ -1,0 +1,215 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Irregular selection grid</title>
+<style>
+    .stage {
+        position: relative;
+        width: 900px;
+        /* your canvas size */
+        height: 600px;
+        background: #111;
+        /* or a background image */
+        user-select: none;
+    }
+
+    .cell {
+        position: absolute;
+        overflow: hidden;
+        /* keep overlay clipped to the rect */
+        cursor: pointer;
+        border: 1px solid #333;
+        /* optional visual boundary */
+    }
+
+    .cell img {
+        position: absolute;
+        /* so the image can be larger than the cell if needed */
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        /* fill each rect nicely */
+        filter: grayscale(0);
+        /* optional: keep color when uncovered */
+    }
+
+    /* Grey overlay by default */
+    .cell::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: rgba(128, 128, 128, 0.6);
+        transition: opacity 150ms ease-in-out;
+        pointer-events: none;
+        opacity: 1;
+    }
+
+    /* Uncover (un-grey) when selected */
+    .cell.selected::after {
+        opacity: 0;
+    }
+
+    /* Optional: also pop color when selected */
+    .cell:not(.selected) img {
+        filter: grayscale(1);
+    }
+</style>
+
+<div id="stage" class="stage"></div>
+
+<script>
+    // Each item defined by two diagonal points, plus your custom fields.
+    // Coordinates are in stage pixels here; switch to percentages if you prefer responsive.
+    const items = [{
+            id: 'A1',
+            p1: {
+                x: 20,
+                y: 20
+            },
+            p2: {
+                x: 200,
+                y: 140
+            },
+            img: 'img/a.jpg',
+            slot: 'top-left',
+            value: 10
+        },
+        {
+            id: 'B7',
+            p1: {
+                x: 230,
+                y: 30
+            },
+            p2: {
+                x: 480,
+                y: 130
+            },
+            img: 'img/b.jpg',
+            slot: 'banner',
+            value: 25
+        },
+        {
+            id: 'C3',
+            p1: {
+                x: 520,
+                y: 50
+            },
+            p2: {
+                x: 880,
+                y: 220
+            },
+            img: 'img/c.jpg',
+            slot: 'hero',
+            value: 50
+        },
+        {
+            id: 'D2',
+            p1: {
+                x: 60,
+                y: 200
+            },
+            p2: {
+                x: 300,
+                y: 360
+            },
+            img: 'img/d.jpg',
+            slot: 'mid-left',
+            value: 5
+        },
+        {
+            id: 'E9',
+            p1: {
+                x: 320,
+                y: 220
+            },
+            p2: {
+                x: 860,
+                y: 380
+            },
+            img: 'img/e.jpg',
+            slot: 'mid-wide',
+            value: 15
+        },
+    ];
+
+    // Utility: from two diagonal points to left/top/width/height
+    function rectFromDiagonal(p1, p2) {
+        const left = Math.min(p1.x, p2.x);
+        const top = Math.min(p1.y, p2.y);
+        const width = Math.abs(p2.x - p1.x);
+        const height = Math.abs(p2.y - p1.y);
+        return {
+            left,
+            top,
+            width,
+            height
+        };
+    }
+
+    // Render cells
+    const stage = document.getElementById('stage');
+
+    const state = new Map(); // id -> {selected:boolean, meta:...}
+
+    items.forEach(it => {
+        const {
+            left,
+            top,
+            width,
+            height
+        } = rectFromDiagonal(it.p1, it.p2);
+
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.style.left = left + 'px';
+        cell.style.top = top + 'px';
+        cell.style.width = width + 'px';
+        cell.style.height = height + 'px';
+
+        // Attach meta for later use
+        cell.dataset.id = it.id;
+        cell.dataset.slot = it.slot;
+        cell.dataset.value = it.value;
+
+        // Image
+        const img = document.createElement('img');
+        img.src = it.img;
+        img.alt = it.id;
+        cell.appendChild(img);
+
+        // Click toggles selection
+        cell.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            const selected = cell.classList.toggle('selected');
+            state.set(it.id, {
+                selected,
+                meta: it
+            });
+            // Example: react to selection change:
+            // console.log('toggled', it.id, 'selected?', selected, it);
+        });
+
+        stage.appendChild(cell);
+        state.set(it.id, {
+            selected: false,
+            meta: it
+        });
+    });
+
+    // Optional: click empty space clears all selections
+    stage.addEventListener('click', () => {
+        [...stage.querySelectorAll('.cell.selected')].forEach(el => el.classList.remove('selected'));
+        for (const [id, obj] of state) state.set(id, {
+            ...obj,
+            selected: false
+        });
+    });
+
+    // Helper: get selected items when needed
+    function getSelected() {
+        return [...state.values()].filter(v => v.selected).map(v => v.meta);
+    }
+
+    // Expose for console testing
+    window.getSelected = getSelected;
+</script>
