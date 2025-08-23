@@ -89,7 +89,7 @@ if ($pdo instanceof PDO) {
               <div class="muted">@<?= htmlspecialchars($r['twitch_login'] ?? '', ENT_QUOTES) ?> <span> (<?= htmlspecialchars($r['twitch_id'] ?? '', ENT_QUOTES) ?>)</span></div>
             </td>
             <td><?= htmlspecialchars($r['username'] ?? '', ENT_QUOTES) ?></td>
-            <td><?= htmlspecialchars($r['role'] ?? '', ENT_QUOTES) ?><?= ((int)$r['subscriber'] ? ' (sub)' : '') ?></td>
+            <td><?= htmlspecialchars($r['role'] ?? '', ENT_QUOTES) ?><?= ((int)$r['subscriber'] ? ' (subbed to Ellipsis_Goblins!)' : '') ?></td>
             <td class="muted"><?= htmlspecialchars($r['updated_at'] ?? '', ENT_QUOTES) ?></td>
           </tr>
           <?php endforeach; ?>
