@@ -33,6 +33,9 @@ $avatar_url     = $u['profile_image_url'] ?? null;
 // 2) Legacy-safe upsert (works on SQLite 3.7.x)
 $pdo->beginTransaction();
 
+
+
+
 // Try to find by twitch_id first
 $sel = $pdo->prepare("SELECT id FROM users WHERE twitch_id = :tid");
 $sel->execute([':tid' => $twitch_id]);
@@ -103,7 +106,38 @@ if ($row) {
 
 $pdo->commit();
 
-// Return the saved row
-$out = $pdo->prepare("SELECT id, username, subscriber, twitch_id, twitch_login, twitch_display, avatar_url, role FROM users WHERE twitch_id = :tid");
-$out->execute([':tid' => $twitch_id]);
-echo json_encode($out->fetch());
+// Fetch the saved row
+$stmt = $pdo->prepare("
+  SELECT id, username, subscriber, twitch_id, twitch_login, twitch_display, avatar_url, role
+  FROM users
+  WHERE twitch_id = :tid
+");
+$stmt->execute([':tid' => $twitch_id]);
+$user = $stmt->fetch();
+
+if (!$user) {
+    http_response_code(500);
+    echo json_encode(['error' => 'saved row not found']);
+    exit;
+}
+
+// Start a PHP session and remember the user (HostGator + localhost safe)
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on'),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+    session_start();
+}
+$_SESSION['uid'] = (int)$user['id'];
+
+// Single, final JSON response
+echo json_encode($user, JSON_UNESCAPED_UNICODE);
+
+
+
+
+

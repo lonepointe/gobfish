@@ -1,0 +1,55 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Gobfish — Inventory</title>
+<style>
+  body { background:#111; color:#eaeaea; font:16px/1.5 system-ui; margin:2rem; }
+  .row{display:flex;gap:.5rem;align-items:center}
+  button{background:#222;border:1px solid #444;color:#eee;border-radius:8px;padding:.3rem .6rem}
+  .pill{font-size:.8rem;padding:.1rem .4rem;border:1px solid #444;border-radius:999px}
+  table{width:100%;border-collapse:collapse;margin-top:1rem}
+  td,th{border-bottom:1px solid #222;padding:.4rem .3rem;text-align:left}
+</style>
+<h1>Inventory</h1>
+<div id="me"></div>
+<table id="inv"><thead><tr><th>Item</th><th>Cat</th><th>Rarity</th><th>Equipped</th><th></th></tr></thead><tbody></tbody></table>
+<script type="module">
+async function load() {
+  const r = await fetch('api/inventory_get.php');
+  if (r.status === 401) { location.href = 'login.html?next=app.html'; return; }
+  const {me, inventory} = await r.json();
+  document.getElementById('me').innerHTML =
+    `<div class="row"><div><strong>${me.username}</strong> <span class="pill">${me.role}${me.subscriber ? ' · sub' : ''}</span></div></div>`;
+  const tbody = document.querySelector('#inv tbody');
+  tbody.innerHTML = '';
+  for (const x of inventory) {
+    const eq = x.is_equipped ? (x.armor_slot || x.weapon_slot || 'yes') : '—';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${x.name}</td>
+      <td>${x.category}</td>
+      <td>${x.rarity ?? ''}</td>
+      <td>${eq}</td>
+      <td>
+        ${x.is_equipped
+          ? `<button data-act="unequip" data-id="${x.item_id}">Unequip</button>`
+          : (x.category==='weapon'
+              ? `<button data-act="equip" data-id="${x.item_id}" data-hand="mainhand">Mainhand</button>
+                 <button data-act="equip" data-id="${x.item_id}" data-hand="offhand">Offhand</button>`
+              : `<button data-act="equip" data-id="${x.item_id}">Equip</button>`
+            )
+        }
+      </td>`;
+    tbody.appendChild(tr);
+  }
+}
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-act]');
+  if (!b) return;
+  const payload = { action: b.dataset.act, item_id: Number(b.dataset.id) };
+  if (b.dataset.hand) payload.hand = b.dataset.hand;
+  const r = await fetch('api/inventory_set.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  if (!r.ok) { alert('Action failed: ' + await r.text()); return; }
+  await load();
+});
+load();
+</script>

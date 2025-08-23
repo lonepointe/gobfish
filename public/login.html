@@ -2,82 +2,77 @@
 <html lang="en">
 <meta charset="utf-8" />
 <title>Gobfish — Login</title>
-<script type="module">
-const CLIENT_ID = '6isq54n8of787rxzpoiuwlqq9jaq3k';
-const REDIRECT_URI = location.origin + location.pathname; // this page
-const AUTH_BASE = 'https://id.twitch.tv/oauth2/authorize';
-const SCOPES = ['user:read:subscriptions']; // e.g. ['user:read:email'] if you ever need email
 
-// simple CSRF guard
+
+<script type="module">
+window.addEventListener('error', e => console.error(e.error || e.message));
+window.addEventListener('unhandledrejection', e => console.error('Promise rejection:', e.reason));
+
+const CLIENT_ID   = '6isq54n8of787rxzpoiuwlqq9jaq3k';
+const REDIRECT_URI= location.origin + location.pathname; // this page
+const AUTH_BASE   = 'https://id.twitch.tv/oauth2/authorize';
+const SCOPES      = ['user:read:subscriptions'];
+const NEXT_URL    = new URLSearchParams(location.search).get('next') || 'app.html';
+
+// CSRF state
 function rand(n=32){return [...crypto.getRandomValues(new Uint8Array(n))].map(b=>b.toString(16).padStart(2,'0')).join('')}
 const state = sessionStorage.state || (sessionStorage.state = rand());
 
-// If we came back from Twitch with a token in the hash, handle it.
 if (location.hash.includes('access_token=')) {
   const params = new URLSearchParams(location.hash.slice(1));
-  if (params.get('state') !== sessionStorage.state) {
-    alert('State mismatch. Try again.'); throw new Error('state mismatch');
-  }
+  if (params.get('state') !== sessionStorage.state) { alert('State mismatch'); throw new Error('state mismatch'); }
   const accessToken = params.get('access_token');
   sessionStorage.twitch_token = accessToken;
 
-  // Fetch user profile from Helix
+  // 1) Helix whoami
   const r = await fetch('https://api.twitch.tv/helix/users', {
-    headers: {
-      'Authorization': 'Bearer ' + accessToken,
-      'Client-Id': CLIENT_ID
-    }
+    headers: { 'Authorization':'Bearer '+accessToken, 'Client-Id': CLIENT_ID }
   });
   if (!r.ok) { alert('Failed to fetch Twitch profile'); throw new Error(await r.text()); }
-  const data = await r.json();
-  const u = data.data?.[0];
+  const u = (await r.json()).data?.[0];
   if (!u) { alert('No Twitch user in response'); throw new Error('no user'); }
 
-  // Send to our backend to upsert into SQLite
+  // 2) Upsert to DB (creates server session)
   const r2 = await fetch('api/users_upsert.php', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
+    method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ access_token: accessToken })
   });
   if (!r2.ok) { alert('Upsert failed'); throw new Error(await r2.text()); }
   const saved = await r2.json();
   console.log('Upserted user:', saved);
 
-// Check + persist sub status for ellipsis_goblins
-try {
-  const sub = await fetch('api/sub_status.php', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ access_token: accessToken, channel_login: 'ellipsis_goblins' })
-  });
-  console.log('sub status:', await sub.json());
-} catch (e) {
-  console.warn('sub check failed', e);
-}
+  // 3) Verify server session cookie is set
+  const me = await fetch('api/whoami.php');
+  if (!me.ok) {
+    const t = await me.text();
+    document.body.innerHTML = `<h1>Login error</h1><pre>${me.status} ${t}</pre><p><button onclick="location.reload()">Try again</button></p>`;
+    throw new Error('whoami failed: '+me.status+' '+t);
+  }
+  console.log('whoami:', await me.json());
 
+  // 4) Check + persist sub status for ellipsis_goblins (non-blocking if it fails)
+  try {
+    const sub = await fetch('api/sub_status.php', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ access_token: accessToken, channel_login: 'ellipsis_goblins' })
+    });
+    console.log('sub status:', await sub.json());
+  } catch (e) {
+    console.warn('sub check failed', e);
+  }
 
-
-
-
-
-
-  // --- REDIRECT ---
-  // optional next param: /login.html?next=inventory.html
-  const next = new URLSearchParams(location.search).get('next') || 'index.php';
-  // clean the URL (remove the #access_token) so it never leaks
+  // 5) Clean the URL (remove #access_token) and redirect once
   history.replaceState({}, '', location.pathname + location.search);
-  // send them on their way (relative path so it works on localhost + HostGator)
-  window.location.replace(next);
-  // --- /REDIRECT ---
+  window.location.replace(NEXT_URL);
 
 } else {
-  // Show a connect button
+  // Show connect button
   const url = new URL(AUTH_BASE);
-  url.searchParams.set('client_id', CLIENT_ID);
+  url.searchParams.set('client_id',    CLIENT_ID);
   url.searchParams.set('redirect_uri', REDIRECT_URI);
-  url.searchParams.set('response_type', 'token');            // Implicit Grant
-  url.searchParams.set('scope', SCOPES.join(' '));
-  url.searchParams.set('state', state);
+  url.searchParams.set('response_type','token');
+  url.searchParams.set('scope',        SCOPES.join(' '));
+  url.searchParams.set('state',        state);
 
   document.body.innerHTML = `
     <h1>Gobfish</h1>
@@ -85,6 +80,128 @@ try {
   `;
 }
 </script>
+
+
+
+
+
+<!-- <script type="module"> -->
+<!--  -->
+<!-- window.addEventListener('error', e => { -->
+<!--   console.error(e.error || e.message); -->
+<!-- }); -->
+<!-- window.addEventListener('unhandledrejection', e => { -->
+<!--   console.error('Promise rejection:', e.reason); -->
+<!-- }); -->
+<!--  -->
+<!--  -->
+<!-- const CLIENT_ID = '6isq54n8of787rxzpoiuwlqq9jaq3k'; -->
+<!-- const REDIRECT_URI = location.origin + location.pathname; // this page -->
+<!-- const AUTH_BASE = 'https://id.twitch.tv/oauth2/authorize'; -->
+<!-- const SCOPES = ['user:read:subscriptions']; // e.g. ['user:read:email'] if you ever need email -->
+<!--  -->
+<!-- // simple CSRF guard -->
+<!-- function rand(n=32){return [...crypto.getRandomValues(new Uint8Array(n))].map(b=>b.toString(16).padStart(2,'0')).join('')} -->
+<!-- const state = sessionStorage.state || (sessionStorage.state = rand()); -->
+<!--  -->
+<!-- // If we came back from Twitch with a token in the hash, handle it. -->
+<!-- if (location.hash.includes('access_token=')) { -->
+<!--   const params = new URLSearchParams(location.hash.slice(1)); -->
+<!--   if (params.get('state') !== sessionStorage.state) { -->
+<!--     alert('State mismatch. Try again.'); throw new Error('state mismatch'); -->
+<!--   } -->
+<!--   const accessToken = params.get('access_token'); -->
+<!--   sessionStorage.twitch_token = accessToken; -->
+<!--  -->
+<!--   // Fetch user profile from Helix -->
+<!--   const r = await fetch('https://api.twitch.tv/helix/users', { -->
+<!--     headers: { -->
+<!--       'Authorization': 'Bearer ' + accessToken, -->
+<!--       'Client-Id': CLIENT_ID -->
+<!--     } -->
+<!--   }); -->
+<!--   if (!r.ok) { alert('Failed to fetch Twitch profile'); throw new Error(await r.text()); } -->
+<!--   const data = await r.json(); -->
+<!--   const u = data.data?.[0]; -->
+<!--   if (!u) { alert('No Twitch user in response'); throw new Error('no user'); } -->
+<!--  -->
+<!--   // Send to our backend to upsert into SQLite -->
+<!--   const r2 = await fetch('api/users_upsert.php', { -->
+<!--     method: 'POST', -->
+<!--     headers: {'Content-Type':'application/json'}, -->
+<!--     body: JSON.stringify({ access_token: accessToken }) -->
+<!--   }); -->
+<!--   if (!r2.ok) { alert('Upsert failed'); throw new Error(await r2.text()); } -->
+<!--   const saved = await r2.json(); -->
+<!--   console.log('Upserted user:', saved); -->
+<!--  -->
+<!--   // Verify server session is set (helps catch cookie issues) -->
+<!--   try { -->
+<!--     const me = await fetch('api/whoami.php'); -->
+<!--     if (!me.ok) { -->
+<!--       const t = await me.text(); -->
+<!--       throw new Error('whoami failed: ' + me.status + ' ' + t); -->
+<!--     } -->
+<!--     console.log('whoami:', await me.json()); -->
+<!--   } catch (err) { -->
+<!--     // show the error on screen so it doesn’t flash away -->
+<!--     document.body.innerHTML = ` -->
+<!--       <h1>Login error</h1> -->
+<!--       <pre>${String(err)}</pre> -->
+<!--       <p><button onclick="location.reload()">Try again</button></p> -->
+<!--     `; -->
+<!--     throw err; // stop here instead of looping -->
+<!--   } -->
+<!--    -->
+<!--   // REDIRECT (keeps working on localhost + HostGator) -->
+<!--   const next = new URLSearchParams(location.search).get('next') || 'app.html'; -->
+<!--   history.replaceState({}, '', location.pathname + location.search);  // remove #access_token -->
+<!--   window.location.replace(next); -->
+<!--    -->
+<!--  -->
+<!--  -->
+<!-- // Check + persist sub status for ellipsis_goblins -->
+<!-- try { -->
+<!--   const sub = await fetch('api/sub_status.php', { -->
+<!--     method: 'POST', -->
+<!--     headers: {'Content-Type':'application/json'}, -->
+<!--     body: JSON.stringify({ access_token: accessToken, channel_login: 'ellipsis_goblins' }) -->
+<!--   }); -->
+<!--   console.log('sub status:', await sub.json()); -->
+<!-- } catch (e) { -->
+<!--   console.warn('sub check failed', e); -->
+<!-- } -->
+<!--  -->
+<!--  -->
+<!--  -->
+<!--  -->
+<!--  -->
+<!--  -->
+<!--  -->
+<!--   // --- REDIRECT --- -->
+<!--   // optional next param: /login.html?next=inventory.html -->
+<!--   const next = new URLSearchParams(location.search).get('next') || 'index.php'; -->
+<!--   // clean the URL (remove the #access_token) so it never leaks -->
+<!--   history.replaceState({}, '', location.pathname + location.search); -->
+<!--   // send them on their way (relative path so it works on localhost + HostGator) -->
+<!--   window.location.replace(next); -->
+<!--   // --- /REDIRECT --- -->
+<!--  -->
+<!-- } else { -->
+<!--   // Show a connect button -->
+<!--   const url = new URL(AUTH_BASE); -->
+<!--   url.searchParams.set('client_id', CLIENT_ID); -->
+<!--   url.searchParams.set('redirect_uri', REDIRECT_URI); -->
+<!--   url.searchParams.set('response_type', 'token');            // Implicit Grant -->
+<!--   url.searchParams.set('scope', SCOPES.join(' ')); -->
+<!--   url.searchParams.set('state', state); -->
+<!--  -->
+<!--   document.body.innerHTML = ` -->
+<!--     <h1>Gobfish</h1> -->
+<!--     <a href="${url}">Connect with Twitch</a> -->
+<!--   `; -->
+<!-- } -->
+<!-- </script> -->
 
 
 
