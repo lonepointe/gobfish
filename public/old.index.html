@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Gobfish — Status</title>
+<style>
+  body { font: 16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu; margin: 2rem; color:#ddd; background:#111; }
+  .card { background:#1a1a1a; border:1px solid #2a2a2a; border-radius:12px; padding:1rem 1.25rem; }
+  .row { display:flex; gap:1rem; align-items:center; }
+  img.avatar { border-radius:50%; width:72px; height:72px; object-fit:cover; }
+  pre { background:#0e0e0e; border:1px solid #262626; padding:0.75rem; border-radius:10px; overflow:auto; }
+  a.btn, button.btn { display:inline-block; padding:.6rem 1rem; border-radius:10px; border:1px solid #3a3a3a; background:#222; color:#eee; text-decoration:none; }
+  .muted { color:#aaa; font-size:.9rem; }
+</style>
+
+<main id="app" class="card">
+  <h1>Gobfish — Twitch status</h1>
+  <p>Checking sign-in…</p>
+</main>
+
+<script type="module">
+const CLIENT_ID = '6isq54n8of787rxzpoiuwlqq9jaq3k'; // <-- set this
+
+const app = document.getElementById('app');
+const token = sessionStorage.twitch_token;
+
+function signedOut() {
+  app.innerHTML = `
+    <h1>Gobfish — Twitch status</h1>
+    <p>You’re signed out.</p>
+    <p><a class="btn" href="login.html">Connect with Twitch</a></p>
+    <p class="muted">After connecting, you’ll be redirected back with a token and we’ll show your Twitch profile and DB row here.</p>
+  `;
+}
+
+async function signedIn() {
+  try {
+    // 1) Ask Twitch who this is
+    const r = await fetch('https://api.twitch.tv/helix/users', {
+      headers: { 'Authorization': 'Bearer ' + token, 'Client-Id': CLIENT_ID }
+    });
+    if (r.status === 401) {
+      sessionStorage.removeItem('twitch_token');
+      return signedOut();
+    }
+    if (!r.ok) throw new Error(await r.text());
+    const data = await r.json();
+    const u = data.data?.[0];
+    if (!u) throw new Error('No user from Helix');
+
+    // 2) Ask our backend for the DB row (by twitch_id)
+    const r2 = await fetch('/gobfish/api/me.php', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ twitch_id: u.id })
+    });
+    const me = r2.ok ? await r2.json() : { error: await r2.text() };
+
+    // 3) Render
+    app.innerHTML = `
+      <h1>Signed in</h1>
+      <div class="row" style="margin:.75rem 0 1rem">
+        <img class="avatar" src="${u.profile_image_url}" alt="">
+        <div>
+          <div><strong>${u.display_name}</strong> <span class="muted">(@${u.login})</span></div>
+          <div class="muted">Twitch ID: ${u.id}</div>
+        </div>
+      </div>
+
+      <h2 style="margin-top:1rem">Twitch (Helix) payload</h2>
+      <pre>${JSON.stringify(u, null, 2)}</pre>
+
+      <h2 style="margin-top:1rem">Database row (users)</h2>
+      <pre>${me && !me.error ? JSON.stringify(me, null, 2) : 'Not found / error:\n' + (me.error || '')}</pre>
+
+      <div style="margin-top:1rem">
+        <button id="logout" class="btn">Log out</button>
+      </div>
+      <p class="muted" style="margin-top:.5rem">Log out clears the local token only.</p>
+    `;
+    document.getElementById('logout').onclick = () => {
+      sessionStorage.removeItem('twitch_token');
+      location.reload();
+    };
+  } catch (err) {
+    app.innerHTML = `
+      <h1>Error</h1>
+      <pre>${String(err)}</pre>
+      <p><button class="btn" onclick="sessionStorage.removeItem('twitch_token'); location.reload()">Clear token and retry</button></p>
+    `;
+    console.error(err);
+  }
+}
+
+if (!token) signedOut();
+else signedIn();
+</script>
+</html>

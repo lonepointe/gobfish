@@ -1,0 +1,55 @@
+<?php
+require __DIR__ . '/db.php';
+require __DIR__ . '/_env.php';
+
+header('Content-Type: application/json');
+
+$input = json_decode(file_get_contents('php://input'), true);
+$token = $input['access_token'] ?? null;
+if (!$token) { http_response_code(400); echo json_encode(['error'=>'missing access_token']); exit; }
+
+// Verify token by asking Twitch who this is
+$ch = curl_init('https://api.twitch.tv/helix/users');
+curl_setopt_array($ch, [
+  CURLOPT_RETURNTRANSFER => true,
+  CURLOPT_HTTPHEADER => [
+    'Authorization: Bearer ' . $token,
+    'Client-Id: ' . TWITCH_CLIENT_ID,
+  ],
+]);
+$resp = curl_exec($ch);
+$code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+curl_close($ch);
+if ($code !== 200) { http_response_code(401); echo json_encode(['error'=>'token rejected','details'=>$resp]); exit; }
+
+$payload = json_decode($resp, true);
+$u = $payload['data'][0] ?? null;
+if (!$u) { http_response_code(401); echo json_encode(['error'=>'no user']); exit; }
+
+$twitch_id      = $u['id'];
+$twitch_login   = $u['login'];
+$twitch_display = $u['display_name'];
+$avatar_url     = $u['profile_image_url'] ?? null;
+
+// Upsert by twitch_id; set username only if it's empty (so you can rename later)
+$sql = "
+INSERT INTO users (username, subscriber, twitch_id, twitch_login, twitch_display, avatar_url, role, created_at, updated_at)
+VALUES (:username, 0, :twitch_id, :twitch_login, :twitch_display, :avatar_url, 'player', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT(twitch_id) DO UPDATE SET
+  twitch_login   = excluded.twitch_login,
+  twitch_display = excluded.twitch_display,
+  avatar_url     = excluded.avatar_url,
+  updated_at     = CURRENT_TIMESTAMP
+";
+$stmt = $pdo->prepare($sql);
+$stmt->execute([
+  ':username'       => $twitch_login,   // initial username = login
+  ':twitch_id'      => $twitch_id,
+  ':twitch_login'   => $twitch_login,
+  ':twitch_display' => $twitch_display,
+  ':avatar_url'     => $avatar_url,
+]);
+
+// Return the saved row (id + fields)
+$out = $pdo->query("SELECT id, username, subscriber, twitch_id, twitch_login, twitch_display, avatar_url, role FROM users WHERE twitch_id = " . (int)$twitch_id)->fetch();
+echo json_encode($out ?? ['ok'=>true]);
