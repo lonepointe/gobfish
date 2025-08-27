@@ -1,0 +1,79 @@
+<link href="https://unpkg.com/tabulator-tables@5.6.0/dist/css/tabulator.min.css" rel="stylesheet">
+<div id="grid"></div>
+<script src="https://unpkg.com/tabulator-tables@5.6.0/dist/js/tabulator.min.js"></script>
+<script>
+const grid = new Tabulator("#grid", {
+  height: "70vh",
+  layout: "fitDataStretch",
+  responsiveLayout: "collapse",     // mobile-friendly
+  placeholder: "No rows",
+  ajaxURL: "/api/items_list.php",
+  ajaxURLGenerator: function(url, config, params){
+    const u = new URL(url, location.origin);
+    u.searchParams.set('page', params.page || 1);
+    u.searchParams.set('size', params.size || 25);
+    if (params.sorters?.length) {
+      const s = params.sorters[0];
+      u.searchParams.set('sort', `${s.field}|${s.dir}`);
+    }
+    if (window.searchQ) u.searchParams.set('q', window.searchQ);
+    return u.toString();
+  },
+  pagination: true,
+  paginationMode: "remote",
+  paginationSize: 25,
+  paginationDataSent: { page:"page", size:"size" },
+  paginationDataReceived: { last_page:"last_page" }, // not needed with our shape
+  columns: [
+    {title:"#", field:"id", width:60, hozAlign:"right"},
+    {title:"Name", field:"name", editor:"input", headerFilter:"input"},
+    {title:"Category", field:"category", editor:"select",
+      editorParams:{values:["armor","weapon","misc","consumable"]}},
+    {title:"Rarity", field:"rarity", editor:"select",
+      editorParams:{values:["common","rare","epic","legendary"]}},
+    {title:"Notes", field:"notes", editor:"textarea", widthGrow:2},
+    {title:"Updated", field:"updated_at", sorter:"datetime", width:160},
+    {title:"", formatter:"buttonCross", width:50, hozAlign:"center",
+      cellClick:(e, cell)=>{
+        const id = cell.getRow().getData().id;
+        if (confirm("Delete this row?")) {
+          fetch(`/api/item_delete.php?id=${id}`).then(r=>r.json()).then(_=>grid.replaceData());
+        }
+      }
+    }
+  ],
+});
+
+// Persist edits back to API
+grid.on("cellEdited", function(cell){
+  const row = cell.getRow().getData();
+  const field = cell.getField();
+  const value = cell.getValue();
+  fetch('/api/item_update.php', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ id: row.id, patch: { [field]: value } })
+  }).then(r=>r.json()).then(resp=>{
+    if(!resp.ok){ alert("Save failed."); grid.replaceData(); }
+  }).catch(_=>{ alert("Network error."); grid.replaceData(); });
+});
+
+// example: quick search box
+// <input id="q" placeholder="Search...">
+const q = document.getElementById('q');
+if (q) {
+  q.addEventListener('input', () => {
+    window.searchQ = q.value.trim();
+    grid.replaceData(); // refetch with q
+  });
+}
+
+// Create row example
+async function createItem(payload){
+  const r = await fetch('/api/item_create.php', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)
+  });
+  const j = await r.json();
+  if (j.id) grid.replaceData();
+}
+</script>

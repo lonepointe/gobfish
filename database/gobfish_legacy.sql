@@ -6,6 +6,20 @@ BEGIN;
    LOOKUP TABLES
    ========================= */
 
+
+
+
+
+
+
+
+
+
+
+
+/*what the fuck do we need catagories for?  we don't.
+
+
 CREATE TABLE IF NOT EXISTS item_categories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   code TEXT NOT NULL UNIQUE,
@@ -14,7 +28,13 @@ CREATE TABLE IF NOT EXISTS item_categories (
   is_active INTEGER NOT NULL DEFAULT 1
 );
 
-CREATE TABLE IF NOT EXISTS rarities (
+*/
+
+-- rarities yes we need.
+-- this holds the text for rarities, like common, unrare, rare, etc.
+-- for the dropdown, to enforce data format.
+
+CREATE TABLE IF NOT EXISTS rarity (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   code TEXT NOT NULL UNIQUE,
   label TEXT NOT NULL,
@@ -22,13 +42,18 @@ CREATE TABLE IF NOT EXISTS rarities (
   is_active INTEGER NOT NULL DEFAULT 1
 );
 
-CREATE TABLE IF NOT EXISTS armor_slots (
+
+-- names the armour slots for the dropdown.  I could hard code this, but meh.
+
+CREATE TABLE IF NOT EXISTS armour_slots (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   code TEXT NOT NULL UNIQUE,
   label TEXT NOT NULL,
   sort_order INTEGER NOT NULL DEFAULT 0,
   is_active INTEGER NOT NULL DEFAULT 1
 );
+
+-- names the weapon slots for the dropdown.
 
 CREATE TABLE IF NOT EXISTS weapon_slots (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,6 +63,8 @@ CREATE TABLE IF NOT EXISTS weapon_slots (
   is_active INTEGER NOT NULL DEFAULT 1
 );
 
+-- track if an encounter is active or resolved.
+
 CREATE TABLE IF NOT EXISTS encounter_statuses (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   code TEXT NOT NULL UNIQUE,
@@ -46,6 +73,8 @@ CREATE TABLE IF NOT EXISTS encounter_statuses (
   is_active INTEGER NOT NULL DEFAULT 1
 );
 
+/*
+-- not sure why we need this, but ok.
 CREATE TABLE IF NOT EXISTS inventory_event_reasons (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   code TEXT NOT NULL UNIQUE,
@@ -54,10 +83,14 @@ CREATE TABLE IF NOT EXISTS inventory_event_reasons (
   is_active INTEGER NOT NULL DEFAULT 1
 );
 
+*/
+
 /* =========================
    CORE TABLES
    ========================= */
 
+
+-- obviously we need users.
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT NOT NULL UNIQUE,
@@ -72,6 +105,9 @@ CREATE TABLE IF NOT EXISTS users (
 );
 CREATE INDEX IF NOT EXISTS idx_users_twitch_login ON users(twitch_login);
 
+
+
+-- track item sets, for set bonuses.
 CREATE TABLE IF NOT EXISTS item_sets (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE,
@@ -81,6 +117,7 @@ CREATE TABLE IF NOT EXISTS item_sets (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
 
 CREATE TABLE IF NOT EXISTS items (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -100,6 +137,9 @@ CREATE INDEX IF NOT EXISTS idx_items_category_id ON items(category_id);
 CREATE INDEX IF NOT EXISTS idx_items_rarity_id   ON items(rarity_id);
 CREATE INDEX IF NOT EXISTS idx_items_set_id      ON items(set_id);
 
+
+
+
 CREATE TABLE IF NOT EXISTS armor_stats (
   item_id INTEGER PRIMARY KEY REFERENCES items(id) ON UPDATE RESTRICT ON DELETE CASCADE,
   slot_id INTEGER NOT NULL REFERENCES armor_slots(id) ON UPDATE RESTRICT ON DELETE RESTRICT,
@@ -108,16 +148,18 @@ CREATE TABLE IF NOT EXISTS armor_stats (
 );
 CREATE INDEX IF NOT EXISTS idx_armor_stats_slot_id ON armor_stats(slot_id);
 
+/*
+-- not sure if we need hands, but whatever.
 CREATE TABLE IF NOT EXISTS weapon_stats (
   item_id INTEGER PRIMARY KEY REFERENCES items(id) ON UPDATE RESTRICT ON DELETE CASCADE,
-  attack_power INTEGER NOT NULL DEFAULT 0,
-  attack_speed INTEGER NOT NULL DEFAULT 1,
-  range        INTEGER NOT NULL DEFAULT 1,
   hands        INTEGER NOT NULL DEFAULT 1 CHECK (hands IN (1,2,3)),
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+*/
+
+-- user inventory, what they own.
 CREATE TABLE IF NOT EXISTS inventory (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON UPDATE RESTRICT ON DELETE CASCADE,
@@ -139,7 +181,6 @@ CREATE TABLE IF NOT EXISTS npcs (
   name TEXT NOT NULL,
   description TEXT,
   is_hostile INTEGER NOT NULL DEFAULT 1,
-  is_active  INTEGER NOT NULL DEFAULT 1,
   value      INTEGER NOT NULL DEFAULT 0,
   sprite_json TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -164,6 +205,7 @@ CREATE INDEX IF NOT EXISTS idx_encounters_user_id ON encounters(user_id);
 CREATE INDEX IF NOT EXISTS idx_encounters_npc_id  ON encounters(npc_id);
 CREATE INDEX IF NOT EXISTS idx_encounters_status  ON encounters(status_id);
 
+
 CREATE TABLE IF NOT EXISTS user_npcs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON UPDATE RESTRICT ON DELETE CASCADE,
@@ -179,6 +221,7 @@ CREATE TABLE IF NOT EXISTS user_npcs (
 );
 CREATE INDEX IF NOT EXISTS idx_user_npcs_user ON user_npcs(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_npcs_npc  ON user_npcs(npc_id);
+
 
 CREATE TABLE IF NOT EXISTS inventory_events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -200,16 +243,8 @@ CREATE INDEX IF NOT EXISTS idx_inv_events_enc_id    ON inventory_events(encounte
    SEED LOOKUPS (legacy-safe)
    ========================= */
 
-/* item_categories */
-INSERT OR IGNORE INTO item_categories(code,label,sort_order,is_active) VALUES ('armor','Armor',10,1);
-UPDATE item_categories SET label='Armor', sort_order=10, is_active=1 WHERE code='armor';
-INSERT OR IGNORE INTO item_categories(code,label,sort_order,is_active) VALUES ('weapon','Weapon',20,1);
-UPDATE item_categories SET label='Weapon', sort_order=20, is_active=1 WHERE code='weapon';
-INSERT OR IGNORE INTO item_categories(code,label,sort_order,is_active) VALUES ('misc','Misc',30,1);
-UPDATE item_categories SET label='Misc', sort_order=30, is_active=1 WHERE code='misc';
-
 /* rarities */
-INSERT OR IGNORE INTO rarities(code,label,sort_order,is_active) VALUES ('common','Common',10,1);
+INSERT OR IGNORE INTO rarities(code,label,sort_order,is_active) VALUES ('common',10,1);
 UPDATE rarities SET label='Common', sort_order=10, is_active=1 WHERE code='common';
 INSERT OR IGNORE INTO rarities(code,label,sort_order,is_active) VALUES ('uncommon','Uncommon',15,1);
 UPDATE rarities SET label='Uncommon', sort_order=15, is_active=1 WHERE code='uncommon';
