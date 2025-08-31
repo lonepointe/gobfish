@@ -34,13 +34,45 @@ CREATE TABLE IF NOT EXISTS item_categories (
 -- this holds the text for rarities, like common, unrare, rare, etc.
 -- for the dropdown, to enforce data format.
 
-CREATE TABLE IF NOT EXISTS rarity (
+CREATE TABLE IF NOT EXISTS rarities (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   code TEXT NOT NULL UNIQUE,
-  label TEXT NOT NULL,
   sort_order INTEGER NOT NULL DEFAULT 0,
   is_active INTEGER NOT NULL DEFAULT 1
 );
+
+
+/* rarities */
+INSERT OR IGNORE INTO rarities(code,label,sort_order,is_active) VALUES ('common','Common',10,1);
+UPDATE rarities SET label='Common', sort_order=10, is_active=1 WHERE code='common';
+INSERT OR IGNORE INTO rarities(code,label,sort_order,is_active) VALUES ('uncommon','Uncommon',15,1);
+UPDATE rarities SET label='Uncommon', sort_order=15, is_active=1 WHERE code='uncommon';
+INSERT OR IGNORE INTO rarities(code,label,sort_order,is_active) VALUES ('rare','Rare',20,1);
+UPDATE rarities SET label='Rare', sort_order=20, is_active=1 WHERE code='rare';
+INSERT OR IGNORE INTO rarities(code,label,sort_order,is_active) VALUES ('epic','Epic',30,1);
+UPDATE rarities SET label='Epic', sort_order=30, is_active=1 WHERE code='epic';
+INSERT OR IGNORE INTO rarities(code,label,sort_order,is_active) VALUES ('legendary','Legendary',40,1);
+UPDATE rarities SET label='Legendary', sort_order=40, is_active=1 WHERE code='legendary';
+
+
+
+CREATE TABLE IF NOT EXISTS  ( groups
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  group_name TEXT NOT NULL UNIQUE,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  group_value INTEGER NOT NULL DEFAULT 0,
+  is_active INTEGER NOT NULL DEFAULT 1
+
+);
+
+/* group_name */
+-- need more info, groups.
+INSERT OR IGNORE INTO groups(group_name,sort_order, group_value, is_active) VALUES ('',10,0);
+UPDATE groups SET group_name='LDdaggars', 35, sort_order=10, is_active=0;
+INSERT OR IGNORE INTO groups(group_name, 69, sort_order,is_active) VALUES ('',10,0);
+UPDATE groups SET group_name='buggerall', sort_order=20, is_active=0;
+
+
 
 
 -- names the armour slots for the dropdown.  I could hard code this, but meh.
@@ -53,6 +85,26 @@ CREATE TABLE IF NOT EXISTS armour_slots (
   is_active INTEGER NOT NULL DEFAULT 1
 );
 
+/* armor_slots */
+INSERT OR IGNORE INTO armor_slots(code,label,sort_order,is_active) VALUES ('head','Head',10,1);
+UPDATE armor_slots SET label='Head', sort_order=10, is_active=1 WHERE code='head';
+INSERT OR IGNORE INTO armor_slots(code,label,sort_order,is_active) VALUES ('shoulders','Shoulders',20,1);
+UPDATE armor_slots SET label='Shoulders', sort_order=20, is_active=1 WHERE code='shoulders';
+INSERT OR IGNORE INTO armor_slots(code,label,sort_order,is_active) VALUES ('back','Back',30,1);
+UPDATE armor_slots SET label='Back', sort_order=30, is_active=1 WHERE code='back';
+INSERT OR IGNORE INTO armor_slots(code,label,sort_order,is_active) VALUES ('face','Face',40,1);
+UPDATE armor_slots SET label='Face', sort_order=40, is_active=1 WHERE code='face';
+INSERT OR IGNORE INTO armor_slots(code,label,sort_order,is_active) VALUES ('torso','Torso',50,1);
+UPDATE armor_slots SET label='Torso', sort_order=50, is_active=1 WHERE code='torso';
+INSERT OR IGNORE INTO armor_slots(code,label,sort_order,is_active) VALUES ('hands','Hands',60,1);
+UPDATE armor_slots SET label='Hands', sort_order=60, is_active=1 WHERE code='hands';
+INSERT OR IGNORE INTO armor_slots(code,label,sort_order,is_active) VALUES ('legs','Legs',70,1);
+UPDATE armor_slots SET label='Legs', sort_order=70, is_active=1 WHERE code='legs';
+INSERT OR IGNORE INTO armor_slots(code,label,sort_order,is_active) VALUES ('feet','Feet',80,1);
+UPDATE armor_slots SET label='Feet', sort_order=80, is_active=1 WHERE code='feet';
+
+
+
 -- names the weapon slots for the dropdown.
 
 CREATE TABLE IF NOT EXISTS weapon_slots (
@@ -62,6 +114,15 @@ CREATE TABLE IF NOT EXISTS weapon_slots (
   sort_order INTEGER NOT NULL DEFAULT 0,
   is_active INTEGER NOT NULL DEFAULT 1
 );
+
+/* weapon_slots */
+INSERT OR IGNORE INTO weapon_slots(code,label,sort_order,is_active) VALUES ('mainhand','Main Hand',10,1);
+UPDATE weapon_slots SET label='Main Hand', sort_order=10, is_active=1 WHERE code='mainhand';
+INSERT OR IGNORE INTO weapon_slots(code,label,sort_order,is_active) VALUES ('offhand','Off Hand',20,1);
+UPDATE weapon_slots SET label='Off Hand', sort_order=20, is_active=1 WHERE code='offhand';
+INSERT OR IGNORE INTO weapon_slots(code,label,sort_order,is_active) VALUES ('both','Two-Handed',30,1);
+UPDATE weapon_slots SET label='Two-Handed', sort_order=30, is_active=1 WHERE code='both';
+
 
 -- track if an encounter is active or resolved.
 
@@ -73,7 +134,13 @@ CREATE TABLE IF NOT EXISTS encounter_statuses (
   is_active INTEGER NOT NULL DEFAULT 1
 );
 
-/*
+/* encounter_statuses */
+INSERT OR IGNORE INTO encounter_statuses(code,label,sort_order,is_active) VALUES ('active','Active',10,1);
+UPDATE encounter_statuses SET label='Active', sort_order=10, is_active=1 WHERE code='active';
+INSERT OR IGNORE INTO encounter_statuses(code,label,sort_order,is_active) VALUES ('resolved','Resolved',20,1);
+UPDATE encounter_statuses SET label='Resolved', sort_order=20, is_active=1 WHERE code='resolved';
+
+-- reasons for inventory changes, like loot, reward, purchase, admin, etc.
 -- not sure why we need this, but ok.
 CREATE TABLE IF NOT EXISTS inventory_event_reasons (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,7 +150,7 @@ CREATE TABLE IF NOT EXISTS inventory_event_reasons (
   is_active INTEGER NOT NULL DEFAULT 1
 );
 
-*/
+
 
 /* =========================
    CORE TABLES
@@ -117,6 +184,10 @@ CREATE TABLE IF NOT EXISTS item_sets (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+
+
+
 
 
 CREATE TABLE IF NOT EXISTS items (
@@ -244,7 +315,7 @@ CREATE INDEX IF NOT EXISTS idx_inv_events_enc_id    ON inventory_events(encounte
    ========================= */
 
 /* rarities */
-INSERT OR IGNORE INTO rarities(code,label,sort_order,is_active) VALUES ('common',10,1);
+INSERT OR IGNORE INTO rarities(code,label,sort_order,is_active) VALUES ('common','Common',10,1);
 UPDATE rarities SET label='Common', sort_order=10, is_active=1 WHERE code='common';
 INSERT OR IGNORE INTO rarities(code,label,sort_order,is_active) VALUES ('uncommon','Uncommon',15,1);
 UPDATE rarities SET label='Uncommon', sort_order=15, is_active=1 WHERE code='uncommon';
